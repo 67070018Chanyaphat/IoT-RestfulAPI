@@ -8,17 +8,26 @@ const pool = new pg.Pool({
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
 });
 
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS students (
-    id           SERIAL PRIMARY KEY,
-    first_name   TEXT NOT NULL,
-    last_name    TEXT NOT NULL,
-    student_code TEXT NOT NULL UNIQUE,
-    birth_date   DATE NOT NULL,
-    gender       TEXT NOT NULL CHECK (gender IN ('male', 'female', 'other')),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-  )
-`);
+async function initDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id           SERIAL PRIMARY KEY,
+        first_name   TEXT NOT NULL,
+        last_name    TEXT NOT NULL,
+        student_code TEXT NOT NULL UNIQUE,
+        birth_date   DATE NOT NULL,
+        gender       TEXT NOT NULL CHECK (gender IN ('male', 'female', 'other')),
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    console.log("Database initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize database:", err);
+  }
+}
+
+initDb();
 
 const COLUMNS = `id, first_name, last_name, student_code,
   to_char(birth_date, 'YYYY-MM-DD') AS birth_date, gender, created_at`;
@@ -143,7 +152,15 @@ app.onError((err, c) => {
   console.error(err);
   return c.json({ error: "Internal server error" }, 500);
 });
+const port = Number(process.env.PORT) || 3000;
 
-serve({ fetch: app.fetch, port: Number(process.env.PORT) || 3000 }, (info) => {
-  console.log(`Server is running on http://localhost:${info.port}`);
-});
+serve(
+  {
+    fetch: app.fetch,
+    port: port,
+    hostname: "0.0.0.0", 
+  },
+  (info) => {
+    console.log(`Server is running on port ${info.port}`);
+  }
+);
